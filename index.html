@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chain NFT Minting</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        .color-picker {
+            margin: 20px 0;
+        }
+        .token-preview {
+            margin-top: 20px;
+        }
+        .token-preview img {
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+
+        button {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Mint Your Chain NFT</h1>
+        <div class="token-preview" id="tokenPreview"></div>
+        <button id="connectWallet">Connect Wallet</button>
+        <div class="color-picker">
+        <input type="color" id="color" name="color" value="#ff0000">
+        </div>
+        <button id="mintButton">Mint NFT</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3/dist/web3.min.js"></script>
+    <script>
+        let web3;
+        let contract;
+        const contractAddress = '0x5d514C2D05179e1C093B26693ECf372b92b2D2Aa';
+        const contractABI = [
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "string",
+                        "name": "color",
+                        "type": "string"
+                    }
+                ],
+                "name": "mint",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "nextTokenId",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "tokenId",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "tokenURI",
+                "outputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+        async function displayLatestToken() {
+            try {
+                const nextTokenId = await contract.methods.nextTokenId().call();
+                const tokenId = Number(nextTokenId) - 1;
+                console.log(tokenId);
+                const tokenURI = await contract.methods.tokenURI(tokenId).call();
+                let tokenJSON = await fetch(tokenURI);
+                tokenJSON = await tokenJSON.json();
+                document.getElementById('tokenPreview').innerHTML = `<img width="500" height="500" src="${tokenJSON.image}" alt="Token Preview" />`;
+            } catch (error) {
+                console.error(error);
+                alert('Failed to fetch latest token');
+            }
+        }
+
+        document.getElementById('connectWallet').addEventListener('click', async () => {
+            if (window.ethereum) {
+                web3 = new Web3(window.ethereum);
+                try {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    const accounts = await web3.eth.getAccounts();
+                    const account = accounts[0];
+                    const chainId = await web3.eth.getChainId();
+                    console.log(chainId);
+                    if (chainId !== 84532n) { // Sepolia testnet chain ID
+                        alert('Please switch to the Sepolia testnet');
+                        return;
+                    }
+                    contract = new web3.eth.Contract(contractABI, contractAddress);
+                    alert('Wallet connected');
+                    document.getElementById('connectWallet').innerText = account;
+                    displayLatestToken();
+                } catch (error) {
+                    console.error(error);
+                    alert('Failed to connect wallet');
+                }
+            } else {
+                alert('Please install MetaMask');
+            }
+        });
+
+        document.getElementById('mintButton').addEventListener('click', async () => {
+            const color = document.getElementById('color').value;
+            const accounts = await web3.eth.getAccounts();
+            const account = accounts[0];
+
+            try {
+                await contract.methods.mint(account, color).send({ from: account });
+                alert('NFT minted successfully');
+                displayLatestToken();
+            } catch (error) {
+                console.error(error);
+                alert('Failed to mint NFT');
+            }
+        });
+
+        window.addEventListener('load', async () => {
+            if (window.ethereum) {
+                web3 = new Web3(window.ethereum);
+                contract = new web3.eth.Contract(contractABI, contractAddress);
+                displayLatestToken();
+            }
+        });
+    </script>
+</body>
+</html>
